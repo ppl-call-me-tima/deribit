@@ -76,9 +76,9 @@ public:
 
     void on_message(websocketpp::connection_hdl hdl, client::message_ptr msg) {
         if (msg->get_opcode() == websocketpp::frame::opcode::text) {
-            m_messages.push_back(msg->get_payload());
+            m_messages.push_back("<< " + msg->get_payload());
         } else {
-            m_messages.push_back(websocketpp::utility::to_hex(msg->get_payload()));
+            m_messages.push_back("<< " + websocketpp::utility::to_hex(msg->get_payload()));
         }   
 
         std::cout << msg->get_payload() << std::endl;
@@ -110,6 +110,7 @@ context_ptr on_tls_init() {
                         boost::asio::ssl::context::no_sslv2 |
                         boost::asio::ssl::context::no_sslv3 |
                         boost::asio::ssl::context::single_dh_use);
+
     } catch (std::exception &e) {
         std::cout << "Error in context pointer: " << e.what() << std::endl;
     }
@@ -268,8 +269,8 @@ int main() {
                 << "\nCommand List:\n"
                 << "connect <ws uri>\n"
                 << "show <connection id>\n"
+                << "send <connection id> <msg>\n"
                 << "close <connection id>\n"
-                << "send <msg>\n"
                 << "help: Display this help text\n"
                 << "quit: Exit the program\n"
                 << std::endl;
@@ -301,15 +302,26 @@ int main() {
             endpoint.close(id, close_code, reason);
         } else if (input.substr(0,4) == "send") {
             std::stringstream ss(input);
-                
-                std::string cmd;
-                int id;
-                std::string message = "";
-                
-                ss >> cmd >> id;
-                std::getline(ss,message);
-                
-                endpoint.send(id, message);
+            
+            std::string cmd;
+            int id;
+            std::string message;
+            
+            ss >> cmd >> id;
+            if (ss.fail()) {
+                std::cout << "Error: Invalid ID format" << std::endl;
+                return -1;
+            }
+            
+            ss.ignore();
+            std::getline(ss, message);
+            
+            if (message.empty()) {
+                std::cout << "Error: Empty message" << std::endl;
+                return -1;
+            }
+            
+            endpoint.send(id, message);
         } else {
             std::cout << "> Unrecognized Command" << std::endl;
         }

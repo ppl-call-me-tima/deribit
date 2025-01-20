@@ -2,7 +2,8 @@
 CXX = g++
 
 # Compiler flags
-CXXFLAGS = -I/home/ppl_call_me_tima/deribit/include -lssl -lcrypto -pthread
+CXXFLAGS = -Iinclude
+LDFLAGS = -lssl -lcrypto -lpthread
 
 # Target executable
 TARGET = main
