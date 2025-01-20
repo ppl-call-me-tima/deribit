@@ -30,6 +30,16 @@ public:
         client::connection_ptr con = c->get_con_from_hdl(hdl);
         m_server = con->get_response_header("Server");
     }
+
+    void on_close(client * c, websocketpp::connection_hdl hdl) {
+        m_status = "Closed";
+        client::connection_ptr con = c->get_con_from_hdl(hdl);
+        std::stringstream s;
+        s << "close code: " << con->get_remote_close_code() << " (" 
+        << websocketpp::close::status::get_string(con->get_remote_close_code()) 
+        << "), close reason: " << con->get_remote_close_reason();
+        m_error_reason = s.str();
+    }
  
     void on_fail(client * c, websocketpp::connection_hdl hdl) {
         m_status = "Failed";
@@ -47,6 +57,18 @@ private:
     std::string m_uri;
     std::string m_server;
     std::string m_error_reason;
+public:
+    std::string get_status(){
+        return m_status;
+    }
+
+    int get_id(){
+        return m_id;
+    }
+    
+    websocketpp::connection_hdl get_hdl(){
+        return m_hdl;
+    }
 };
  
 std::ostream & operator<< (std::ostream & out, connection_metadata const & data) {
@@ -68,6 +90,28 @@ public:
         m_endpoint.start_perpetual();
  
         m_thread.reset(new websocketpp::lib::thread(&client::run, &m_endpoint));
+    }
+
+    ~websocket_endpoint() {
+        m_endpoint.stop_perpetual();
+        
+        for (con_list::const_iterator it = m_connection_list.begin(); it != m_connection_list.end(); ++it) {
+            if (it->second->get_status() != "Open") {
+                // Only close open connections
+                continue;
+            }
+            
+            std::cout << "> Closing connection " << it->second->get_id() << std::endl;
+            
+            websocketpp::lib::error_code ec;
+            m_endpoint.close(it->second->get_hdl(), websocketpp::close::status::going_away, "", ec);
+            if (ec) {
+                std::cout << "> Error closing connection " << it->second->get_id() << ": "  
+                        << ec.message() << std::endl;
+            }
+        }
+        
+        m_thread->join();
     }
  
     int connect(std::string const & uri) {
@@ -100,6 +144,21 @@ public:
         m_endpoint.connect(con);
  
         return new_id;
+    }
+
+    void close(int id, websocketpp::close::status::value code) {
+        websocketpp::lib::error_code ec;
+        
+        con_list::iterator metadata_it = m_connection_list.find(id);
+        if (metadata_it == m_connection_list.end()) {
+            std::cout << "> No connection found with id " << id << std::endl;
+            return;
+        }
+        
+        m_endpoint.close(metadata_it->second->get_hdl(), code, "", ec);
+        if (ec) {
+            std::cout << "> Error initiating close: " << ec.message() << std::endl;
+        }
     }
  
     connection_metadata::ptr get_metadata(int id) const {
@@ -136,6 +195,7 @@ int main() {
                 << "\nCommand List:\n"
                 << "connect <ws uri>\n"
                 << "show <connection id>\n"
+                << "close <connection id>\n"
                 << "help: Display this help text\n"
                 << "quit: Exit the program\n"
                 << std::endl;
@@ -153,6 +213,18 @@ int main() {
             } else {
                 std::cout << "> Unknown connection id " << id << std::endl;
             }
+        } else if (input.substr(0,5) == "close") {
+            std::stringstream ss(input);
+            
+            std::string cmd;
+            int id;
+            int close_code = websocketpp::close::status::normal;
+            std::string reason;
+            
+            ss >> cmd >> id >> close_code;
+            std::getline(ss,reason);
+            
+            endpoint.close(id, close_code);
         } else {
             std::cout << "> Unrecognized Command" << std::endl;
         }
