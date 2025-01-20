@@ -2,7 +2,7 @@
 CXX = g++
 
 # Compiler flags
-CXXFLAGS = -std=c++17 -Iinclude/websocketpp
+CXXFLAGS = -std=c++17 -Iinclude
 
 # Target executable
 TARGET = main
