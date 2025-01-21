@@ -20,7 +20,7 @@
 typedef websocketpp::client<websocketpp::config::asio_tls_client> client;
 typedef std::shared_ptr<boost::asio::ssl::context> context_ptr;
 
-using json = nlohmann::json;
+using json = nlohmann::ordered_json;
 
 class connection_metadata {
 private:
@@ -344,8 +344,31 @@ void deribit_menu(websocket_endpoint &endpoint) {
                 << "help: Show deribit command list\n"
                 << "quit: Exit deribit menu\n"
                 << std::endl;
-        } if (input.substr(0,4) == "auth") {
-            // implement auth
+        } else if (input.substr(0,4) == "auth") {
+            std::stringstream ss(input);
+
+            std::string cmd;
+            std::string client_id;
+            std::string client_secret;
+
+            ss >> cmd >> client_id >> client_secret;
+
+            if (ss.fail()) {
+                std::cout << "Error: Invalid auth format" << std::endl;
+            }
+
+            json json_payload = {
+                {"jsonrpc", "2.0"},
+                {"method", "public/auth"},
+                {"params", {
+                    {"grant_type", "client_credentials"},
+                    {"client_id", client_id},
+                    {"client_secret", client_secret}
+                }}
+            };
+
+            std::string msg = json_payload.dump();
+            endpoint.send(0, msg);
         } else{
             std::cout << "> Unrecognised Command" << std::endl;
         }
