@@ -7,6 +7,8 @@
 
 #include <websocketpp/common/thread.hpp>
 #include <websocketpp/common/memory.hpp>
+
+#include <nlohmann/json.hpp>
  
 #include <cstdlib>
 #include <iostream>
@@ -17,6 +19,8 @@
  
 typedef websocketpp::client<websocketpp::config::asio_tls_client> client;
 typedef std::shared_ptr<boost::asio::ssl::context> context_ptr;
+
+using json = nlohmann::json;
 
 class connection_metadata {
 private:
@@ -79,9 +83,7 @@ public:
             m_messages.push_back("<< " + msg->get_payload());
         } else {
             m_messages.push_back("<< " + websocketpp::utility::to_hex(msg->get_payload()));
-        }   
-
-        std::cout << msg->get_payload() << std::endl;
+        }
     }
  
     friend std::ostream & operator<< (std::ostream & out, connection_metadata const & data);
@@ -146,7 +148,7 @@ public:
                 continue;
             }
             
-            std::cout << "> Closing connection " << it->second->get_id() << std::endl;
+            std::cout << "> Closing websocket connection" << std::endl;
             
             websocketpp::lib::error_code ec;
             m_endpoint.close(it->second->get_hdl(), websocketpp::close::status::going_away, "", ec);
@@ -226,7 +228,7 @@ public:
         return new_id;
     }
 
-    void close(int id, websocketpp::close::status::value code, std::string reason) {
+    void close(int id, websocketpp::close::status::value code) {
         websocketpp::lib::error_code ec;
         
         con_list::iterator metadata_it = m_connection_list.find(id);
@@ -240,7 +242,7 @@ public:
             std::cout << "> Error initiating close: " << ec.message() << std::endl;
         }
 
-        std::cout << "Closed with reason" << reason << std::endl;
+        std::cout << "> Connection to WebSocket closed." << std::endl;
     }
  
     connection_metadata::ptr get_metadata(int id) const {
@@ -252,12 +254,22 @@ public:
         }
     }
 };
+
+void deribit_menu(websocket_endpoint& endpoint);
+
  
 int main() {
-    bool done = false;
-    std::string input;
     websocket_endpoint endpoint;
  
+    int id = endpoint.connect("wss://test.deribit.com/ws/api/v2");
+    if (id == -1){
+        return -1;
+    }
+    std::cout << "\nWebSocket connection to Deribit established." << std::endl;
+    
+    bool done = false;
+    std::string input;
+
     while (!done) {
         std::cout << "Enter Command: ";
         std::getline(std::cin, input);
@@ -267,39 +279,21 @@ int main() {
         } else if (input == "help") {
             std::cout
                 << "\nCommand List:\n"
-                << "connect <ws uri>\n"
-                << "show <connection id>\n"
-                << "send <connection id> <msg>\n"
-                << "close <connection id>\n"
+                << "show: Show connection metadata\n"
+                << "deribit: Enter deribit menu\n"
                 << "help: Display this help text\n"
                 << "quit: Exit the program\n"
                 << std::endl;
-        } else if (input.substr(0,7) == "connect") {
-            int id = endpoint.connect(input.substr(8));
-            if (id != -1) {
-                std::cout << "> Created connection with id " << id << std::endl;
-            }
-        } else if (input.substr(0,4) == "show") {
-            int id = atoi(input.substr(5).c_str());
+        } else if (input == "show") {
+            int id = 0;
  
             connection_metadata::ptr metadata = endpoint.get_metadata(id);
             if (metadata) {
                 std::cout << *metadata << std::endl;
-            } else {
-                std::cout << "> Unknown connection id " << id << std::endl;
             }
-        } else if (input.substr(0,5) == "close") {
-            std::stringstream ss(input);
-            
-            std::string cmd;
-            int id;
-            int close_code = websocketpp::close::status::normal;
-            std::string reason;
-            
-            ss >> cmd >> id >> close_code;
-            std::getline(ss,reason);
-            
-            endpoint.close(id, close_code, reason);
+        } else if (input == "deribit"){
+            deribit_menu(endpoint);
+            std::cout << std::endl;
         } else if (input.substr(0,4) == "send") {
             std::stringstream ss(input);
             
@@ -328,4 +322,32 @@ int main() {
     }
  
     return 0;
+}
+
+void deribit_menu(websocket_endpoint &endpoint) {
+    bool done = false;
+    std::string input;
+
+    std::cout << std::endl;
+
+    while (!done){
+        std::cout << "Enter deribit command: ";
+        std::getline(std::cin, input);
+
+        if (input == "quit") {
+            std::cout << "> Your are leaving deribit menu" << std::endl;
+            done = true;
+        } else if (input == "help") {
+            std::cout
+                << "\nDeribit command list:\n"
+                << "auth <cilent_id> <client_secret>\n"
+                << "help: Show deribit command list\n"
+                << "quit: Exit deribit menu\n"
+                << std::endl;
+        } if (input.substr(0,4) == "auth") {
+            // implement auth
+        } else{
+            std::cout << "> Unrecognised Command" << std::endl;
+        }
+    }
 }
