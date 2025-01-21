@@ -306,6 +306,8 @@ int main() {
                 << "auth <cilent_id> <client_secret>\n"
                 << "buy <instument> <amount> <type> <label>\n"
                 << "sell <instrument> <amount> <type> <label>\n"
+                << "cancel <order_id>\n"
+                << "cancel all\n"
                 << "help: Show deribit command list\n"
                 << "quit: Exit deribit menu\n"
                 << std::endl;
@@ -394,7 +396,32 @@ int main() {
 
             std::string msg = json_payload.dump();
             endpoint.send(0, msg);
-        } else{
+        } else if (input == "cancel all") {
+
+            json json_payload = make_json_payload("private/cancel_all");
+            std::string msg = json_payload.dump();
+            endpoint.send(0, msg);
+        } else if (input.substr(0,6) == "cancel") {
+            std::stringstream ss(input.substr(7));
+
+            std::string order_id;
+
+            ss >> order_id;
+            if (ss.fail()) {
+                std::cout << "Error: Invalid cancel command format." << std::endl;
+                continue;
+            }
+
+            json json_payload = make_json_payload("private/cancel");
+
+            json params = {
+                {"order_id", order_id},
+            };
+            json_payload["params"] = params;
+
+            std::string msg = json_payload.dump();
+            endpoint.send(0, msg);
+        }  else{
             std::cout << "> Unrecognised Command" << std::endl;
         }
     }
