@@ -308,6 +308,7 @@ int main() {
                 << "sell <instrument> <amount> <type> <label>\n"
                 << "cancel <order_id>\n"
                 << "cancel all\n"
+                << "edit <order_id> <amount> <price>\n"
                 << "help: Show deribit command list\n"
                 << "quit: Exit deribit menu\n"
                 << std::endl;
@@ -421,7 +422,31 @@ int main() {
 
             std::string msg = json_payload.dump();
             endpoint.send(0, msg);
-        }  else{
+        } else if (input.substr(0,4) == "edit") {
+            std::stringstream ss(input.substr(5));
+
+            std::string order_id;
+            int amount;
+            float price;
+
+            ss >> order_id >> amount >> price;
+            if (ss.fail()) {
+                std::cout << "Error: Invalid edit command format." << std::endl;
+                continue;
+            }
+
+            json json_payload = make_json_payload("private/edit");
+
+            json params = {
+                {"order_id", order_id},
+                {"amount", amount},
+                {"price", price}
+            };
+            json_payload["params"] = params;
+
+            std::string msg = json_payload.dump();
+            endpoint.send(0, msg);
+        } else{
             std::cout << "> Unrecognised Command" << std::endl;
         }
     }
