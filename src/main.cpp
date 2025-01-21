@@ -305,6 +305,7 @@ int main() {
                 << "show: Show messages\n"
                 << "auth <cilent_id> <client_secret>\n"
                 << "buy <instument> <amount> <type> <label>\n"
+                << "sell <instrument> <amount> <type> <label>\n"
                 << "help: Show deribit command list\n"
                 << "quit: Exit deribit menu\n"
                 << std::endl;
@@ -356,6 +357,32 @@ int main() {
             }
 
             json json_payload = make_json_payload("private/buy");
+
+            json params = {
+                {"instrument_name", instrument_name},
+                {"amount", amount},
+                {"type", type},
+                {"label", label}
+            };
+            json_payload["params"] = params;
+
+            std::string msg = json_payload.dump();
+            endpoint.send(0, msg);
+        } else if (input.substr(0,4) == "sell") {
+            std::stringstream ss(input.substr(5));
+
+            std::string instrument_name;
+            int amount;
+            std::string type;
+            std::string label;
+
+            ss >> instrument_name >> amount >> type >> label;
+            if (ss.fail()) {
+                std::cout << "Error: Invalid sell command format." << std::endl;
+                continue;
+            }
+
+            json json_payload = make_json_payload("private/sell");
 
             json params = {
                 {"instrument_name", instrument_name},
