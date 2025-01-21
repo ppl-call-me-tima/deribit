@@ -403,8 +403,11 @@ int main() {
 }
 
 json make_json_payload(std::string method) {
+    std::srand(time(0));
+
     json json_payload = {
         {"jsonrpc", "2.0"},
+        {"id", std::rand()},
         {"method", method}
     };
     
