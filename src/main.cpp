@@ -22,6 +22,8 @@ typedef std::shared_ptr<boost::asio::ssl::context> context_ptr;
 
 using json = nlohmann::ordered_json;
 
+void show_error(json json_incoming);
+
 class connection_metadata {
 private:
     int m_id;
@@ -83,6 +85,12 @@ public:
             m_messages.push_back("<< " + msg->get_payload());
         } else {
             m_messages.push_back("<< " + websocketpp::utility::to_hex(msg->get_payload()));
+        }
+
+        json json_incoming = json::parse(msg->get_payload());
+
+        if (json_incoming.contains("error")) {
+            show_error(json_incoming["error"]);
         }
     }
  
@@ -257,7 +265,6 @@ public:
 
 void deribit_menu(websocket_endpoint& endpoint);
 
- 
 int main() {
     websocket_endpoint endpoint;
  
@@ -270,91 +277,40 @@ int main() {
     bool done = false;
     std::string input;
 
-    while (!done) {
-        std::cout << "Enter Command: ";
+    while (!done){
+        std::cout << "Enter Deribit Command: ";
         std::getline(std::cin, input);
- 
+
         if (input == "quit") {
             done = true;
         } else if (input == "help") {
             std::cout
-                << "\nCommand List:\n"
-                << "show: Show connection metadata\n"
-                << "deribit: Enter deribit menu\n"
-                << "help: Display this help text\n"
-                << "quit: Exit the program\n"
+                << "\nDeribit Command List:\n"
+                << "show: Show messages\n"
+                << "auth <cilent_id> <client_secret>\n"
+                << "buy <instument> <amount> <type> <label>\n"
+                << "help: Show deribit command list\n"
+                << "quit: Exit deribit menu\n"
                 << std::endl;
-        } else if (input == "show") {
+        } else if (input == "show"){
             int id = 0;
- 
+
             connection_metadata::ptr metadata = endpoint.get_metadata(id);
             if (metadata) {
                 std::cout << *metadata << std::endl;
             }
-        } else if (input == "deribit"){
-            deribit_menu(endpoint);
-            std::cout << std::endl;
-        } else if (input.substr(0,4) == "send") {
-            std::stringstream ss(input);
-            
-            std::string cmd;
-            int id;
-            std::string message;
-            
-            ss >> cmd >> id;
-            if (ss.fail()) {
-                std::cout << "Error: Invalid ID format" << std::endl;
-                return -1;
-            }
-            
-            ss.ignore();
-            std::getline(ss, message);
-            
-            if (message.empty()) {
-                std::cout << "Error: Empty message" << std::endl;
-                return -1;
-            }
-            
-            endpoint.send(id, message);
-        } else {
-            std::cout << "> Unrecognized Command" << std::endl;
-        }
-    }
- 
-    return 0;
-}
-
-void deribit_menu(websocket_endpoint &endpoint) {
-    bool done = false;
-    std::string input;
-
-    std::cout << std::endl;
-
-    while (!done){
-        std::cout << "Enter deribit command: ";
-        std::getline(std::cin, input);
-
-        if (input == "quit") {
-            std::cout << "> Your are leaving deribit menu" << std::endl;
-            done = true;
-        } else if (input == "help") {
-            std::cout
-                << "\nDeribit command list:\n"
-                << "auth <cilent_id> <client_secret>\n"
-                << "help: Show deribit command list\n"
-                << "quit: Exit deribit menu\n"
-                << std::endl;
         } else if (input.substr(0,4) == "auth") {
-            std::stringstream ss(input);
+            std::stringstream ss(input.substr(5));
 
             std::string cmd;
             std::string client_id;
             std::string client_secret;
 
-            ss >> cmd >> client_id >> client_secret;
+            ss >> client_id >> client_secret;
 
             if (ss.fail()) {
                 std::cout << "Error: Invalid auth format" << std::endl;
+                continue;
             }
 
             json json_payload = {
@@ -369,8 +325,21 @@ void deribit_menu(websocket_endpoint &endpoint) {
 
             std::string msg = json_payload.dump();
             endpoint.send(0, msg);
+        } else if (input.substr(0,3) == "buy") {
+            // implement buy
+            std::stringstream ss(input);
         } else{
             std::cout << "> Unrecognised Command" << std::endl;
         }
     }
+ 
+    return 0;
+}
+
+void show_error(json json_incoming) {
+    std::cout
+        << "\nThere was an error in the request:\n"
+        << "Code: " << json_incoming["code"] << "\n"
+        << "Message: " << json_incoming["message"].get<std::string>() << "\n"
+        << std::endl;
 }
