@@ -23,6 +23,7 @@ typedef std::shared_ptr<boost::asio::ssl::context> context_ptr;
 using json = nlohmann::ordered_json;
 
 void show_error(json json_incoming);
+json make_json_payload(std::string method);
 
 class connection_metadata {
 private:
@@ -33,6 +34,7 @@ private:
     std::string m_server;
     std::string m_error_reason;
     std::vector<std::string> m_messages;
+    std::vector<std::string> m_errors;
 
 public: 
     typedef websocketpp::lib::shared_ptr<connection_metadata> ptr;
@@ -81,16 +83,17 @@ public:
     }
 
     void on_message(websocketpp::connection_hdl hdl, client::message_ptr msg) {
+        json json_incoming = json::parse(msg->get_payload());
+
+        if (json_incoming.contains("error")) {
+            m_errors.push_back("<< " + msg->get_payload());
+            return;       
+        }
+
         if (msg->get_opcode() == websocketpp::frame::opcode::text) {
             m_messages.push_back("<< " + msg->get_payload());
         } else {
             m_messages.push_back("<< " + websocketpp::utility::to_hex(msg->get_payload()));
-        }
-
-        json json_incoming = json::parse(msg->get_payload());
-
-        if (json_incoming.contains("error")) {
-            show_error(json_incoming["error"]);
         }
     }
  
@@ -103,10 +106,23 @@ std::ostream & operator<< (std::ostream & out, connection_metadata const & data)
         << "> Remote Server: " << (data.m_server.empty() ? "None Specified" : data.m_server) << "\n"
         << "> Error/close reason: " << (data.m_error_reason.empty() ? "N/A" : data.m_error_reason)
         << "> Messages Processed: (" << data.m_messages.size() << ") \n";
- 
-        std::vector<std::string>::const_iterator it;
-        for (it = data.m_messages.begin(); it != data.m_messages.end(); ++it) {
-            out << *it << "\n";
+        
+        if (!data.m_messages.empty()) {
+            out << "Messages:\n";
+
+            std::vector<std::string>::const_iterator it;
+            for (it = data.m_messages.begin(); it != data.m_messages.end(); ++it) {
+                out << *it << "\n";
+            }
+        }
+        
+        if (!data.m_errors.empty()) {
+            out << "Errors:\n";
+
+            std::vector<std::string>::const_iterator it;
+            for (it = data.m_errors.begin(); it != data.m_errors.end(); it++) {
+                out << *it << "\n";
+            }
         }
  
     return out;
@@ -309,25 +325,48 @@ int main() {
             ss >> client_id >> client_secret;
 
             if (ss.fail()) {
-                std::cout << "Error: Invalid auth format" << std::endl;
+                std::cout << "Error: Invalid auth command format" << std::endl;
                 continue;
             }
 
-            json json_payload = {
-                {"jsonrpc", "2.0"},
-                {"method", "public/auth"},
-                {"params", {
-                    {"grant_type", "client_credentials"},
-                    {"client_id", client_id},
-                    {"client_secret", client_secret}
-                }}
+            json json_payload = make_json_payload("public/auth");
+
+            json params = {
+                {"grant_type", "client_credentials"},
+                {"client_id", client_id},
+                {"client_secret", client_secret}
             };
+
+            json_payload["params"] = params;
 
             std::string msg = json_payload.dump();
             endpoint.send(0, msg);
         } else if (input.substr(0,3) == "buy") {
-            // implement buy
-            std::stringstream ss(input);
+            std::stringstream ss(input.substr(4));
+
+            std::string instrument_name;
+            int amount;
+            std::string type;
+            std::string label;
+
+            ss >> instrument_name >> amount >> type >> label;
+            if (ss.fail()) {
+                std::cout << "Error: Invalid buy command format." << std::endl;
+                continue;
+            }
+
+            json json_payload = make_json_payload("private/buy");
+
+            json params = {
+                {"instrument_name", instrument_name},
+                {"amount", amount},
+                {"type", type},
+                {"label", label}
+            };
+            json_payload["params"] = params;
+
+            std::string msg = json_payload.dump();
+            endpoint.send(0, msg);
         } else{
             std::cout << "> Unrecognised Command" << std::endl;
         }
@@ -336,10 +375,11 @@ int main() {
     return 0;
 }
 
-void show_error(json json_incoming) {
-    std::cout
-        << "\nThere was an error in the request:\n"
-        << "Code: " << json_incoming["code"] << "\n"
-        << "Message: " << json_incoming["message"].get<std::string>() << "\n"
-        << std::endl;
+json make_json_payload(std::string method) {
+    json json_payload = {
+        {"jsonrpc", "2.0"},
+        {"method", method}
+    };
+    
+    return json_payload;
 }
