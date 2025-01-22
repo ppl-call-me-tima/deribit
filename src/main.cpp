@@ -35,6 +35,7 @@ private:
     std::string m_error_reason;
     std::vector<std::string> m_messages;
     std::vector<std::string> m_errors;
+    bool show_subscription_data;
 
 public: 
     typedef websocketpp::lib::shared_ptr<connection_metadata> ptr;
@@ -46,6 +47,7 @@ public:
       , m_status("Connecting")
       , m_uri(uri)
       , m_server("N/A")
+      , show_subscription_data(false)
     {}
 
     int get_id(){return m_id;}
@@ -85,34 +87,36 @@ public:
     void on_message(websocketpp::connection_hdl hdl, client::message_ptr msg) {
         json json_incoming = json::parse(msg->get_payload());
 
-        if (json_incoming.contains("method") && 
-            json_incoming["method"] == "subscription") {
-            
-            if (json_incoming.contains("params") && 
-                json_incoming["params"].contains("data")) {
+        if (show_subscription_data) {
+            if (json_incoming.contains("method") && 
+                json_incoming["method"] == "subscription") {
                 
-                const auto& data = json_incoming["params"]["data"];
+                if (json_incoming.contains("params") && 
+                    json_incoming["params"].contains("data")) {
+                    
+                    const auto& data = json_incoming["params"]["data"];
 
-                if (data.contains("bids") && !data["bids"].empty()) {
-                    std::cout << "New bids:" << std::endl;
-                    for (const auto& bid : data["bids"]) {
-                        std::cout 
-                            << "> ACTION: " << bid[0] << "\n"
-                            << "Price: " << bid[1] << "\n"
-                            << "Amount: " << bid[2] << "\n";
+                    if (data.contains("bids") && !data["bids"].empty()) {
+                        std::cout << "New bids:" << std::endl;
+                        for (const auto& bid : data["bids"]) {
+                            std::cout 
+                                << "> ACTION: " << bid[0] << "\n"
+                                << "Price: " << bid[1] << "\n"
+                                << "Amount: " << bid[2] << "\n";
+                        }
+                        std::cout << "-----------------------------------------------" << std::endl;
                     }
-                    std::cout << "-----------------------------------------------" << std::endl;
-                }
-                
-                if (data.contains("asks") && !data["asks"].empty()) {
-                    std::cout << "New asks:" << std::endl;
-                    for (const auto& ask : data["asks"]) {
-                        std::cout 
-                            << "> ACTION: " << ask[0] << "\n"
-                            << "Price: " << ask[1] << "\n"
-                            << "Amount: " << ask[2] << "\n";
+                    
+                    if (data.contains("asks") && !data["asks"].empty()) {
+                        std::cout << "New asks:" << std::endl;
+                        for (const auto& ask : data["asks"]) {
+                            std::cout 
+                                << "> ACTION: " << ask[0] << "\n"
+                                << "Price: " << ask[1] << "\n"
+                                << "Amount: " << ask[2] << "\n";
+                        }
+                        std::cout << "-----------------------------------------------" << std::endl;
                     }
-                    std::cout << "-----------------------------------------------" << std::endl;
                 }
             }
         }
@@ -127,6 +131,10 @@ public:
         } else {
             m_messages.push_back("<< " + websocketpp::utility::to_hex(msg->get_payload()));
         }
+    }
+
+    void toggle_show_subscription_data() {
+        show_subscription_data = !show_subscription_data;
     }
  
     friend std::ostream & operator<< (std::ostream & out, connection_metadata const & data);
@@ -333,7 +341,7 @@ int main() {
             done = true;
         } else if (input == "help") {
             std::cout
-                << "\nDeribit Command List:\n"
+                << "\nCOMMAND LIST:\n"
                 << "show: Show messages\n"
                 << "auth <cilent_id> <client_secret>\n"
                 << "buy <instument_name> <amount> <type> <label>\n"
@@ -345,13 +353,12 @@ int main() {
                 << "positions <currency>\n"
                 << "subscribe <channel> <interval>\n"
                 << "unsubscribe <channel> <interval>\n"
+                << "tgl: Toggle incoming changes to subscribed symbol\n"
                 << "help: Show deribit command list\n"
                 << "quit: Exit deribit menu\n"
                 << std::endl;
         } else if (input == "show"){
-            int id = 0;
-
-            connection_metadata::ptr metadata = endpoint.get_metadata(id);
+            connection_metadata::ptr metadata = endpoint.get_metadata(0);
             if (metadata) {
                 std::cout << *metadata << std::endl;
             }
@@ -566,6 +573,11 @@ int main() {
 
             std::string msg = json_payload.dump();
             endpoint.send(0, msg);
+        } else if (input == "tgl") {
+            connection_metadata::ptr metadata = endpoint.get_metadata(0);
+            if (metadata) {
+                metadata->toggle_show_subscription_data();
+            }
         } else{
             std::cout << "> Unrecognised Command" << std::endl;
         }
