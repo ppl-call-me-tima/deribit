@@ -85,6 +85,38 @@ public:
     void on_message(websocketpp::connection_hdl hdl, client::message_ptr msg) {
         json json_incoming = json::parse(msg->get_payload());
 
+        if (json_incoming.contains("method") && 
+            json_incoming["method"] == "subscription") {
+            
+            if (json_incoming.contains("params") && 
+                json_incoming["params"].contains("data")) {
+                
+                const auto& data = json_incoming["params"]["data"];
+
+                if (data.contains("bids") && !data["bids"].empty()) {
+                    std::cout << "New bids:" << std::endl;
+                    for (const auto& bid : data["bids"]) {
+                        std::cout 
+                            << "> ACTION: " << bid[0] << "\n"
+                            << "Price: " << bid[1] << "\n"
+                            << "Amount: " << bid[2] << "\n";
+                    }
+                    std::cout << "-----------------------------------------------" << std::endl;
+                }
+                
+                if (data.contains("asks") && !data["asks"].empty()) {
+                    std::cout << "New asks:" << std::endl;
+                    for (const auto& ask : data["asks"]) {
+                        std::cout 
+                            << "> ACTION: " << ask[0] << "\n"
+                            << "Price: " << ask[1] << "\n"
+                            << "Amount: " << ask[2] << "\n";
+                    }
+                    std::cout << "-----------------------------------------------" << std::endl;
+                }
+            }
+        }
+
         if (json_incoming.contains("error")) {
             m_errors.push_back("<< " + msg->get_payload());
             return;       
@@ -311,6 +343,8 @@ int main() {
                 << "edit <order_id> <amount> <price>\n"
                 << "orderbook <intrument_name> <depth>\n"
                 << "positions <currency>\n"
+                << "subscribe <channel> <interval>\n"
+                << "unsubscribe <channel> <interval>\n"
                 << "help: Show deribit command list\n"
                 << "quit: Exit deribit menu\n"
                 << std::endl;
@@ -485,6 +519,48 @@ int main() {
 
             json params = {
                 {"currency", currency}
+            };
+            json_payload["params"] = params;
+
+            std::string msg = json_payload.dump();
+            endpoint.send(0, msg);
+        } else if (input.substr(0,9) == "subscribe") {
+            std::stringstream ss(input.substr(10));
+
+            std::string instrument_name;
+            std::string interval;
+
+            ss >> instrument_name >> interval;
+            if (ss.fail()) {
+                std::cout << "Error: Invalid subscribe command format." << std::endl;
+                continue;
+            }
+
+            json json_payload = make_json_payload("public/subscribe");
+
+            json params = {
+                {"channels", {"book." + instrument_name + "." + interval + "ms"}}
+            };
+            json_payload["params"] = params;
+
+            std::string msg = json_payload.dump();
+            endpoint.send(0, msg);
+        } else if (input.substr(0,11) == "unsubscribe") {
+            std::stringstream ss(input.substr(12));
+
+            std::string instrument_name;
+            std::string interval;
+
+            ss >> instrument_name >> interval;
+            if (ss.fail()) {
+                std::cout << "Error: Invalid unsubscribe command format." << std::endl;
+                continue;
+            }
+
+            json json_payload = make_json_payload("public/unsubscribe");
+
+            json params = {
+                {"channels", {"book." + instrument_name + "." + interval + "ms"}}
             };
             json_payload["params"] = params;
 
