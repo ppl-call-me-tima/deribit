@@ -304,11 +304,12 @@ int main() {
                 << "\nDeribit Command List:\n"
                 << "show: Show messages\n"
                 << "auth <cilent_id> <client_secret>\n"
-                << "buy <instument> <amount> <type> <label>\n"
-                << "sell <instrument> <amount> <type> <label>\n"
+                << "buy <instument_name> <amount> <type> <label>\n"
+                << "sell <instrument_name> <amount> <type> <label>\n"
                 << "cancel <order_id>\n"
                 << "cancel all\n"
                 << "edit <order_id> <amount> <price>\n"
+                << "orderbook <intrument_name> <depth>\n"
                 << "help: Show deribit command list\n"
                 << "quit: Exit deribit menu\n"
                 << std::endl;
@@ -441,6 +442,28 @@ int main() {
                 {"order_id", order_id},
                 {"amount", amount},
                 {"price", price}
+            };
+            json_payload["params"] = params;
+
+            std::string msg = json_payload.dump();
+            endpoint.send(0, msg);
+        } else if (input.substr(0,9) == "orderbook") {
+            std::stringstream ss(input.substr(10));
+
+            std::string instrument_name;
+            int depth;
+
+            ss >> instrument_name >> depth;
+            if (ss.fail()) {
+                std::cout << "Error: Invalid orderbook command format." << std::endl;
+                continue;
+            }
+
+            json json_payload = make_json_payload("public/get_order_book");
+
+            json params = {
+                {"instrument_name", instrument_name},
+                {"depth", depth}
             };
             json_payload["params"] = params;
 
