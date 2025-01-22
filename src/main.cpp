@@ -310,6 +310,7 @@ int main() {
                 << "cancel all\n"
                 << "edit <order_id> <amount> <price>\n"
                 << "orderbook <intrument_name> <depth>\n"
+                << "positions <currency>\n"
                 << "help: Show deribit command list\n"
                 << "quit: Exit deribit menu\n"
                 << std::endl;
@@ -464,6 +465,26 @@ int main() {
             json params = {
                 {"instrument_name", instrument_name},
                 {"depth", depth}
+            };
+            json_payload["params"] = params;
+
+            std::string msg = json_payload.dump();
+            endpoint.send(0, msg);
+        } else if (input.substr(0,9) == "positions") {
+            std::stringstream ss(input.substr(10));
+
+            std::string currency;
+
+            ss >> currency;
+            if (ss.fail()) {
+                std::cout << "Error: Invalid positions command format." << std::endl;
+                continue;
+            }
+
+            json json_payload = make_json_payload("private/get_positions");
+
+            json params = {
+                {"currency", currency}
             };
             json_payload["params"] = params;
 
