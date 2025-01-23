@@ -22,12 +22,12 @@ typedef std::shared_ptr<boost::asio::ssl::context> context_ptr;
 
 using json = nlohmann::ordered_json;
 
-void show_error(json json_incoming);
 json make_json_payload(std::string method);
 
 class connection_metadata {
 private:
     int m_id;
+    bool show_subscription_data;
     websocketpp::connection_hdl m_hdl;
     std::string m_status;
     std::string m_uri;
@@ -35,7 +35,6 @@ private:
     std::string m_error_reason;
     std::vector<std::string> m_messages;
     std::vector<std::string> m_errors;
-    bool show_subscription_data;
 
 public: 
     typedef websocketpp::lib::shared_ptr<connection_metadata> ptr;
@@ -43,11 +42,11 @@ public:
     
     connection_metadata(int id, websocketpp::connection_hdl hdl, std::string uri)
       : m_id(id)
+      , show_subscription_data(false)
       , m_hdl(hdl)
       , m_status("Connecting")
       , m_uri(uri)
       , m_server("N/A")
-      , show_subscription_data(false)
     {}
 
     int get_id(){return m_id;}
@@ -319,13 +318,12 @@ public:
     }
 };
 
-void deribit_menu(websocket_endpoint& endpoint);
-
 int main() {
     websocket_endpoint endpoint;
  
     int id = endpoint.connect("wss://test.deribit.com/ws/api/v2");
     if (id == -1){
+        std::cout << "Connection couldn't be established." << std::endl;
         return -1;
     }
     std::cout << "\nWebSocket connection to Deribit established." << std::endl;
@@ -346,10 +344,10 @@ int main() {
                 << "auth <cilent_id> <client_secret>\n"
                 << "buy <instument_name> <amount> <type> <label>\n"
                 << "sell <instrument_name> <amount> <type> <label>\n"
-                << "cancel <order_id>\n"
-                << "cancel all: Cancel all current opened orders\n"
                 << "edit <order_id> <amount> <price>\n"
                 << "orders: Show all current opened orders\n"
+                << "cancel <order_id>\n"
+                << "cancel all: Cancel all current opened orders\n"
                 << "orderbook <intrument_name> <depth>\n"
                 << "positions <currency>\n"
                 << "subscribe <channel> <interval>\n"
