@@ -347,8 +347,9 @@ int main() {
                 << "buy <instument_name> <amount> <type> <label>\n"
                 << "sell <instrument_name> <amount> <type> <label>\n"
                 << "cancel <order_id>\n"
-                << "cancel all\n"
+                << "cancel all: Cancel all current opened orders\n"
                 << "edit <order_id> <amount> <price>\n"
+                << "orders: Show all current opened orders\n"
                 << "orderbook <intrument_name> <depth>\n"
                 << "positions <currency>\n"
                 << "subscribe <channel> <interval>\n"
@@ -487,6 +488,10 @@ int main() {
             };
             json_payload["params"] = params;
 
+            std::string msg = json_payload.dump();
+            endpoint.send(0, msg);
+        } else if (input == "orders") {
+            json json_payload = make_json_payload("private/get_open_orders");
             std::string msg = json_payload.dump();
             endpoint.send(0, msg);
         } else if (input.substr(0,9) == "orderbook") {
